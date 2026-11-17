@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Defensor Galáctico — juego retro</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090d21;color:#e8f7ff;font-family:system-ui,sans-serif;text-align:center}main{max-width:530px;margin:auto;padding:12px}h1{font-size:1.35rem;margin:8px}p{font-size:.9rem;margin:7px}canvas{width:100%;max-width:480px;aspect-ratio:3/4;background:#050a17;border:2px solid #3ac7ed;touch-action:none;display:block;margin:10px auto}button{border:1px solid #70dfff;border-radius:12px;background:#163452;color:white;padding:14px 22px;font-size:18px;font-weight:bold;touch-action:none}.controls{display:flex;gap:12px;justify-content:space-between}.controls button{flex:1}#fire{background:#8b244c}#status{min-height:1.4em}</style></head>
+<body><main><h1>🚀 Defensor Galáctico</h1><p>Juego original inspirado en los arcades espaciales clásicos</p><div id="status">Puntos: 0 · Vidas: 3 · Nivel: 1</div><canvas id="game" width="480" height="640" aria-label="Juego espacial"></canvas><div class="controls"><button id="left">◀</button><button id="fire">DISPARAR</button><button id="right">▶</button></div><p><button id="start">Iniciar / Reiniciar</button></p><p>Celular: botones o arrastrá la nave. PC: flechas y espacio.</p></main>
+<script>
+(()=>{'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),status=document.getElementById('status');
+const W=480,H=640;let player,shots,enemies,enemyShots,stars,score,lives,level,playing,keys={},last=0,spawn=0,fireWait=0,enemyFire=0,invuln=0;
+function reset(){player={x:W/2,y:H-56};shots=[];enemies=[];enemyShots=[];stars=Array.from({length:65},()=>({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*2}));score=0;lives=3;level=1;spawn=0;fireWait=0;enemyFire=0;invuln=0;playing=true;last=0;update();}
+function update(){status.textContent='Puntos: '+score+' · Vidas: '+lives+' · Nivel: '+level+(playing?'':' · Pulsa Iniciar');}
+function rectHit(a,b,ax,ay,bx,by){return Math.abs(a.x-b.x)<ax+bx&&Math.abs(a.y-b.y)<ay+by}
+function fire(){if(!playing||fireWait>0)return;shots.push({x:player.x,y:player.y-22});fireWait=.19}
+function step(dt){if(!playing)return;
+ if(keys.left)player.x-=270*dt;if(keys.right)player.x+=270*dt;player.x=Math.max(22,Math.min(W-22,player.x));if(keys.fire)fire();
+ fireWait=Math.max(0,fireWait-dt);invuln=Math.max(0,invuln-dt);
+ stars.forEach(s=>{s.y+=s.s*25*dt;if(s.y>H){s.y=0;s.x=Math.random()*W}});
+ spawn-=dt;if(spawn<=0){enemies.push({x:30+Math.random()*(W-60),y:-30,v:65+level*14+Math.random()*35,phase:Math.random()*6.28});spawn=Math.max(.28,1.05-level*.07)}
+ for(const e of enemies){e.y+=e.v*dt;e.x+=Math.sin(e.y*.026+e.phase)*35*dt}
+ shots.forEach(s=>s.y-=440*dt);enemyShots.forEach(s=>s.y+=205*dt);
+ enemyFire-=dt;if(enemyFire<=0&&enemies.length){const e=enemies[Math.floor(Math.random()*enemies.length)];enemyShots.push({x:e.x,y:e.y+16});enemyFire=Math.max(.35,1.6-level*.08)}
+ for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.y>H+30){enemies.splice(i,1);continue}
+ for(let j=shots.length-1;j>=0;j--)if(rectHit(e,shots[j],18,16,4,9)){enemies.splice(i,1);shots.splice(j,1);score+=10;level=1+Math.floor(score/150);update();break}
+ }
+ shots=shots.filter(s=>s.y>-20);enemyShots=enemyShots.filter(s=>s.y<H+20);
+ if(invuln<=0){let hit=false;for(let i=enemyShots.length-1;i>=0;i--)if(rectHit(player,enemyShots[i],17,17,5,8)){enemyShots.splice(i,1);hit=true;break}
+ if(!hit)for(let i=enemies.length-1;i>=0;i--)if(rectHit(player,enemies[i],20,19,18,16)){enemies.splice(i,1);hit=true;break}
+ if(hit){lives--;invuln=1.6;if(lives<=0)playing=false;update()}}
+}
+function ship(x,y,color){ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x,y-22);ctx.lineTo(x-19,y+18);ctx.lineTo(x,y+10);ctx.lineTo(x+19,y+18);ctx.closePath();ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(x-3,y-6,6,11)}
+function draw(){ctx.fillStyle='#050a17';ctx.fillRect(0,0,W,H);ctx.fillStyle='#b6dbff';for(const s of stars)ctx.fillRect(s.x,s.y,s.s,s.s);
+ for(const e of enemies){ctx.fillStyle='#e86fa7';ctx.beginPath();ctx.ellipse(e.x,e.y,19,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffe37c';ctx.fillRect(e.x-9,e.y-4,6,5);ctx.fillRect(e.x+4,e.y-4,6,5);ctx.fillStyle='#a24ee8';ctx.fillRect(e.x-24,e.y+3,48,5)}
+ ctx.fillStyle='#70faff';for(const s of shots)ctx.fillRect(s.x-3,s.y-10,6,18);
+ ctx.fillStyle='#ffb557';for(const s of enemyShots)ctx.fillRect(s.x-4,s.y-4,8,12);
+ if(playing&&(invuln<=0||Math.floor(invuln*10)%2===0))ship(player.x,player.y,'#4ce3c1');
+ if(!playing){ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,245,W,140);ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 30px system-ui';ctx.fillText(lives<=0?'FIN DEL JUEGO':'DEFENSOR GALÁCTICO',W/2,300);ctx.font='18px system-ui';ctx.fillText('Tocá Iniciar para jugar',W/2,340)}
+}
+function loop(t){const dt=Math.min(.04,(t-last)/1000||0);last=t;step(dt);draw();requestAnimationFrame(loop)}
+function bind(id,key){const el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true;el.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(ev,()=>keys[key]=false)}
+bind('left','left');bind('right','right');bind('fire','fire');
+document.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='ArrowLeft')keys.left=true;if(e.code==='ArrowRight')keys.right=true;if(e.code==='Space')keys.fire=true});
+document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')keys.left=false;if(e.code==='ArrowRight')keys.right=false;if(e.code==='Space')keys.fire=false});
+canvas.addEventListener('pointermove',e=>{if(e.buttons){const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width))}});canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width));fire()});
+document.getElementById('start').addEventListener('click',reset);
+playing=false;player={x:W/2,y:H-56};shots=[];enemies=[];enemyShots=[];stars=Array.from({length:65},()=>({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*2}));score=0;lives=3;level=1;requestAnimationFrame(loop);
+})();
+</script></body></html>
