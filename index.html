@@ -3,7 +3,7 @@
 <title>Defensor Galáctico — juego retro</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#090d21;color:#e8f7ff;font-family:system-ui,sans-serif;text-align:center}main{max-width:530px;margin:auto;padding:12px}h1{font-size:1.35rem;margin:8px}p{font-size:.9rem;margin:7px}canvas{width:100%;max-width:480px;aspect-ratio:3/4;background:#050a17;border:2px solid #3ac7ed;touch-action:none;display:block;margin:10px auto}button{border:1px solid #70dfff;border-radius:12px;background:#163452;color:white;padding:14px 22px;font-size:18px;font-weight:bold;touch-action:none}.controls{display:flex;gap:12px;justify-content:space-between}.controls button{flex:1}#fire{background:#8b244c}#status{min-height:1.4em}</style></head>
-<body><main><h1>🚀 Defensor Galáctico</h1><p>Juego original inspirado en los arcades espaciales clásicos</p><div id="status">Puntos: 0 · Vidas: 3 · Nivel: 1</div><canvas id="game" width="480" height="640" aria-label="Juego espacial"></canvas><div class="controls"><button id="left">◀</button><button id="fire">DISPARAR</button><button id="right">▶</button></div><p><button id="start">Iniciar / Reiniciar</button></p><p>Celular: botones o arrastrá la nave. PC: flechas y espacio.</p></main>
+<body><main><h1>🚀 Defensor Galáctico</h1><p>Juego original inspirado en los arcades espaciales clásicos</p><div id="status">Puntos: 0 · Vidas: 3 · Nivel: 1</div><canvas id="game" width="480" height="640" aria-label="Juego espacial"></canvas><div class="controls"><button id="left">◀</button><button id="up">▲</button><button id="fire">DISPARAR</button><button id="down">▼</button><button id="right">▶</button></div><p><button id="start">Iniciar / Reiniciar</button></p><p>Celular: botones ▲ ▼ ◀ ▶ o arrastrá la nave en cualquier dirección. PC: flechas y espacio.</p></main>
 <script>
 (()=>{'use strict';
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),status=document.getElementById('status');
@@ -15,7 +15,7 @@ function update(){status.textContent='Puntos: '+score+' · Vidas: '+lives+' · N
 function rectHit(a,b,ax,ay,bx,by){return Math.abs(a.x-b.x)<ax+bx&&Math.abs(a.y-b.y)<ay+by}
 function fire(){if(!playing||fireWait>0)return;shots.push({x:player.x,y:player.y-22});sound('laser');fireWait=.19}
 function step(dt){if(!playing)return;
- if(keys.left)player.x-=270*dt;if(keys.right)player.x+=270*dt;player.x=Math.max(22,Math.min(W-22,player.x));if(keys.fire)fire();
+ if(keys.left)player.x-=270*dt;if(keys.right)player.x+=270*dt;if(keys.up)player.y-=270*dt;if(keys.down)player.y+=270*dt;player.x=Math.max(22,Math.min(W-22,player.x));player.y=Math.max(25,Math.min(H-25,player.y));if(keys.fire)fire();
  fireWait=Math.max(0,fireWait-dt);invuln=Math.max(0,invuln-dt);
  stars.forEach(s=>{s.y+=s.s*25*dt;if(s.y>H){s.y=0;s.x=Math.random()*W}});
  spawn-=dt;if(spawn<=0){enemies.push({x:30+Math.random()*(W-60),y:-30,v:65+level*14+Math.random()*35,phase:Math.random()*6.28});spawn=Math.max(.28,1.05-level*.07)}
@@ -40,10 +40,10 @@ function draw(){ctx.fillStyle='#050a17';ctx.fillRect(0,0,W,H);ctx.fillStyle='#b6
 }
 function loop(t){const dt=Math.min(.04,(t-last)/1000||0);last=t;step(dt);draw();requestAnimationFrame(loop)}
 function bind(id,key){const el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();unlockAudio();keys[key]=true;el.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(ev,()=>keys[key]=false)}
-bind('left','left');bind('right','right');bind('fire','fire');
-document.addEventListener('keydown',e=>{unlockAudio();if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='ArrowLeft')keys.left=true;if(e.code==='ArrowRight')keys.right=true;if(e.code==='Space')keys.fire=true});
-document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')keys.left=false;if(e.code==='ArrowRight')keys.right=false;if(e.code==='Space')keys.fire=false});
-canvas.addEventListener('pointermove',e=>{if(e.buttons){const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width))}});canvas.addEventListener('pointerdown',e=>{unlockAudio();const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width));fire()});
+bind('left','left');bind('right','right');bind('up','up');bind('down','down');bind('fire','fire');
+document.addEventListener('keydown',e=>{unlockAudio();if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code))e.preventDefault();if(e.code==='ArrowLeft')keys.left=true;if(e.code==='ArrowRight')keys.right=true;if(e.code==='ArrowUp')keys.up=true;if(e.code==='ArrowDown')keys.down=true;if(e.code==='Space')keys.fire=true});
+document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')keys.left=false;if(e.code==='ArrowRight')keys.right=false;if(e.code==='ArrowUp')keys.up=false;if(e.code==='ArrowDown')keys.down=false;if(e.code==='Space')keys.fire=false});
+canvas.addEventListener('pointermove',e=>{if(e.buttons){const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width));player.y=Math.max(25,Math.min(H-25,(e.clientY-r.top)*H/r.height))}});canvas.addEventListener('pointerdown',e=>{unlockAudio();const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width));fire()});
 document.getElementById('start').addEventListener('click',()=>{unlockAudio();reset()});
 playing=false;player={x:W/2,y:H-56};shots=[];enemies=[];enemyShots=[];stars=Array.from({length:65},()=>({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*2}));score=0;lives=3;level=1;requestAnimationFrame(loop);
 })();
