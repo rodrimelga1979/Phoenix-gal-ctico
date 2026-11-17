@@ -8,10 +8,12 @@
 (()=>{'use strict';
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),status=document.getElementById('status');
 const W=480,H=640;let player,shots,enemies,enemyShots,stars,score,lives,level,playing,keys={},last=0,spawn=0,fireWait=0,enemyFire=0,invuln=0;
+let audio=null;function unlockAudio(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume()}catch(e){}}
+function sound(kind){if(!audio||audio.state!=='running')return;try{const now=audio.currentTime,osc=audio.createOscillator(),gain=audio.createGain();osc.connect(gain);gain.connect(audio.destination);osc.type=kind==='laser'?'square':kind==='boom'?'sawtooth':'triangle';const start=kind==='laser'?650:kind==='boom'?210:440,end=kind==='laser'?180:kind==='boom'?55:90,dur=kind==='laser'?.12:kind==='boom'?.22:.42;osc.frequency.setValueAtTime(start,now);osc.frequency.exponentialRampToValueAtTime(end,now+dur);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==='boom'?.11:.065,now+.012);gain.gain.exponentialRampToValueAtTime(.0001,now+dur);osc.start(now);osc.stop(now+dur+.02)}catch(e){}}
 function reset(){player={x:W/2,y:H-56};shots=[];enemies=[];enemyShots=[];stars=Array.from({length:65},()=>({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*2}));score=0;lives=3;level=1;spawn=0;fireWait=0;enemyFire=0;invuln=0;playing=true;last=0;update();}
 function update(){status.textContent='Puntos: '+score+' · Vidas: '+lives+' · Nivel: '+level+(playing?'':' · Pulsa Iniciar');}
 function rectHit(a,b,ax,ay,bx,by){return Math.abs(a.x-b.x)<ax+bx&&Math.abs(a.y-b.y)<ay+by}
-function fire(){if(!playing||fireWait>0)return;shots.push({x:player.x,y:player.y-22});fireWait=.19}
+function fire(){if(!playing||fireWait>0)return;shots.push({x:player.x,y:player.y-22});sound('laser');fireWait=.19}
 function step(dt){if(!playing)return;
  if(keys.left)player.x-=270*dt;if(keys.right)player.x+=270*dt;player.x=Math.max(22,Math.min(W-22,player.x));if(keys.fire)fire();
  fireWait=Math.max(0,fireWait-dt);invuln=Math.max(0,invuln-dt);
@@ -21,12 +23,12 @@ function step(dt){if(!playing)return;
  shots.forEach(s=>s.y-=440*dt);enemyShots.forEach(s=>s.y+=205*dt);
  enemyFire-=dt;if(enemyFire<=0&&enemies.length){const e=enemies[Math.floor(Math.random()*enemies.length)];enemyShots.push({x:e.x,y:e.y+16});enemyFire=Math.max(.35,1.6-level*.08)}
  for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.y>H+30){enemies.splice(i,1);continue}
- for(let j=shots.length-1;j>=0;j--)if(rectHit(e,shots[j],18,16,4,9)){enemies.splice(i,1);shots.splice(j,1);score+=10;level=1+Math.floor(score/150);update();break}
+ for(let j=shots.length-1;j>=0;j--)if(rectHit(e,shots[j],18,16,4,9)){enemies.splice(i,1);shots.splice(j,1);score+=10;sound('boom');level=1+Math.floor(score/150);update();break}
  }
  shots=shots.filter(s=>s.y>-20);enemyShots=enemyShots.filter(s=>s.y<H+20);
  if(invuln<=0){let hit=false;for(let i=enemyShots.length-1;i>=0;i--)if(rectHit(player,enemyShots[i],17,17,5,8)){enemyShots.splice(i,1);hit=true;break}
  if(!hit)for(let i=enemies.length-1;i>=0;i--)if(rectHit(player,enemies[i],20,19,18,16)){enemies.splice(i,1);hit=true;break}
- if(hit){lives--;invuln=1.6;if(lives<=0)playing=false;update()}}
+ if(hit){sound('hit');lives--;invuln=1.6;if(lives<=0)playing=false;update()}}
 }
 function ship(x,y,color){ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x,y-22);ctx.lineTo(x-19,y+18);ctx.lineTo(x,y+10);ctx.lineTo(x+19,y+18);ctx.closePath();ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(x-3,y-6,6,11)}
 function draw(){ctx.fillStyle='#050a17';ctx.fillRect(0,0,W,H);ctx.fillStyle='#b6dbff';for(const s of stars)ctx.fillRect(s.x,s.y,s.s,s.s);
@@ -37,12 +39,12 @@ function draw(){ctx.fillStyle='#050a17';ctx.fillRect(0,0,W,H);ctx.fillStyle='#b6
  if(!playing){ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,245,W,140);ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 30px system-ui';ctx.fillText(lives<=0?'FIN DEL JUEGO':'DEFENSOR GALÁCTICO',W/2,300);ctx.font='18px system-ui';ctx.fillText('Tocá Iniciar para jugar',W/2,340)}
 }
 function loop(t){const dt=Math.min(.04,(t-last)/1000||0);last=t;step(dt);draw();requestAnimationFrame(loop)}
-function bind(id,key){const el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true;el.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(ev,()=>keys[key]=false)}
+function bind(id,key){const el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();unlockAudio();keys[key]=true;el.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(ev,()=>keys[key]=false)}
 bind('left','left');bind('right','right');bind('fire','fire');
-document.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='ArrowLeft')keys.left=true;if(e.code==='ArrowRight')keys.right=true;if(e.code==='Space')keys.fire=true});
+document.addEventListener('keydown',e=>{unlockAudio();if(['ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='ArrowLeft')keys.left=true;if(e.code==='ArrowRight')keys.right=true;if(e.code==='Space')keys.fire=true});
 document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')keys.left=false;if(e.code==='ArrowRight')keys.right=false;if(e.code==='Space')keys.fire=false});
-canvas.addEventListener('pointermove',e=>{if(e.buttons){const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width))}});canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width));fire()});
-document.getElementById('start').addEventListener('click',reset);
+canvas.addEventListener('pointermove',e=>{if(e.buttons){const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width))}});canvas.addEventListener('pointerdown',e=>{unlockAudio();const r=canvas.getBoundingClientRect();player.x=Math.max(22,Math.min(W-22,(e.clientX-r.left)*W/r.width));fire()});
+document.getElementById('start').addEventListener('click',()=>{unlockAudio();reset()});
 playing=false;player={x:W/2,y:H-56};shots=[];enemies=[];enemyShots=[];stars=Array.from({length:65},()=>({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*2}));score=0;lives=3;level=1;requestAnimationFrame(loop);
 })();
 </script></body></html>
