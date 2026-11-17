@@ -18,17 +18,21 @@ function step(dt){if(!playing)return;
  if(keys.left)player.x-=270*dt;if(keys.right)player.x+=270*dt;if(keys.up)player.y-=270*dt;if(keys.down)player.y+=270*dt;player.x+=joyX*270*dt;player.y+=joyY*270*dt;player.x=Math.max(22,Math.min(W-22,player.x));player.y=Math.max(25,Math.min(H-25,player.y));if(keys.fire)fire();
  fireWait=Math.max(0,fireWait-dt);invuln=Math.max(0,invuln-dt);
  stars.forEach(s=>{s.y+=s.s*25*dt;if(s.y>H){s.y=0;s.x=Math.random()*W}});
- if(defeated>=10+level*3&&!boss&&!bossPending){bossPending=true;enemies=[];enemyShots=[];boss={x:W/2,y:95,hp:8+level*4,max:8+level*4,t:0};update()}
- if(boss){boss.t+=dt;boss.x=W/2+Math.sin(boss.t*1.6)*155;enemyFire-=dt;if(enemyFire<=0){enemyShots.push({x:boss.x,y:boss.y+35});enemyFire=.65/settings()}}
+ if(defeated>=10+level*3&&!boss&&!bossPending){bossPending=true;enemies=[];enemyShots=[];boss={x:W/2,y:110,hp:12+level*5,max:12+level*5,t:0,type:(level-1)%3,phase:0};update()}
+ if(boss){boss.t+=dt;boss.phase=boss.hp<boss.max*.5?1:0;boss.x=W/2+Math.sin(boss.t*(1.3+boss.type*.3))*(120+boss.type*14);boss.y=110+Math.sin(boss.t*.8)*20;enemyFire-=dt;
+ if(enemyFire<=0){const speed=(175+level*13)*settings(),turrets=boss.type===0?[-45,45]:boss.type===1?[-57,0,57]:[-65,-30,30,65];
+ for(const offset of turrets){const x=boss.x+offset,y=boss.y+30,aim=Math.atan2(player.y-y,player.x-x),spread=(offset/65)*(boss.type===0?.22:boss.type===1?.35:.5),angle=aim+spread;enemyShots.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed})}
+ if(boss.phase){const n=boss.type===2?9:5;for(let k=0;k<n;k++){const angle=Math.PI*.12+k*Math.PI*.76/(n-1);enemyShots.push({x:boss.x,y:boss.y+30,vx:Math.cos(angle)*speed*.85,vy:Math.sin(angle)*speed*.85})}}
+ enemyFire=(boss.phase?.65:1.05)/settings();}}
  spawn-=dt;if(!boss&&spawn<=0){enemies.push({x:30+Math.random()*(W-60),y:-30,v:(65+level*14+Math.random()*35)*settings(),phase:Math.random()*6.28});spawn=Math.max(.28,1.05-level*.07)}
  for(const e of enemies){e.y+=e.v*dt;e.x+=Math.sin(e.y*.026+e.phase)*35*dt}
- shots.forEach(s=>s.y-=440*dt);enemyShots.forEach(s=>s.y+=205*dt*settings());
+ shots.forEach(s=>s.y-=440*dt);enemyShots.forEach(s=>{s.x+=(s.vx||0)*dt;s.y+=(s.vy===undefined?205*settings():s.vy)*dt});
  if(!boss)enemyFire-=dt;if(!boss&&enemyFire<=0&&enemies.length){const e=enemies[Math.floor(Math.random()*enemies.length)];enemyShots.push({x:e.x,y:e.y+16});enemyFire=Math.max(.35,1.6-level*.08)/settings()}
  for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.y>H+30){enemies.splice(i,1);continue}
  for(let j=shots.length-1;j>=0;j--)if(rectHit(e,shots[j],18,16,4,9)){enemies.splice(i,1);shots.splice(j,1);score+=10;defeated++;sound('boom');update();break}
  }
  if(boss){for(let j=shots.length-1;j>=0;j--)if(rectHit(boss,shots[j],62,30,4,9)){shots.splice(j,1);boss.hp--;sound("boom");if(boss.hp<=0){score+=100*level;level++;defeated=0;boss=null;bossPending=false;enemyShots=[];invuln=2;update()}break}}
- shots=shots.filter(s=>s.y>-20);enemyShots=enemyShots.filter(s=>s.y<H+20);
+ shots=shots.filter(s=>s.y>-20);enemyShots=enemyShots.filter(s=>s.y<H+20&&s.y>-30&&s.x>-30&&s.x<W+30);
  if(invuln<=0){let hit=false;for(let i=enemyShots.length-1;i>=0;i--)if(rectHit(player,enemyShots[i],17,17,5,8)){enemyShots.splice(i,1);hit=true;break}
  if(!hit&&boss&&rectHit(player,boss,17,17,62,30))hit=true;
  if(!hit)for(let i=enemies.length-1;i>=0;i--)if(rectHit(player,enemies[i],20,19,18,16)){enemies.splice(i,1);hit=true;break}
@@ -37,7 +41,19 @@ function step(dt){if(!playing)return;
 function ship(x,y,color){ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x,y-22);ctx.lineTo(x-19,y+18);ctx.lineTo(x,y+10);ctx.lineTo(x+19,y+18);ctx.closePath();ctx.fill();ctx.fillStyle='#fff';ctx.fillRect(x-3,y-6,6,11)}
 function draw(){ctx.fillStyle='#050a17';ctx.fillRect(0,0,W,H);ctx.fillStyle='#b6dbff';for(const s of stars)ctx.fillRect(s.x,s.y,s.s,s.s);
  for(const e of enemies){ctx.fillStyle='#e86fa7';ctx.beginPath();ctx.ellipse(e.x,e.y,19,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffe37c';ctx.fillRect(e.x-9,e.y-4,6,5);ctx.fillRect(e.x+4,e.y-4,6,5);ctx.fillStyle='#a24ee8';ctx.fillRect(e.x-24,e.y+3,48,5)}
- if(boss){ctx.fillStyle='#9b4ff2';ctx.beginPath();ctx.ellipse(boss.x,boss.y,65,34,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffce61';ctx.fillRect(boss.x-38,boss.y-8,76,14);ctx.fillStyle='#ff5252';ctx.fillRect(boss.x-55,boss.y-49,110*(boss.hp/boss.max),8);ctx.strokeStyle='#fff';ctx.strokeRect(boss.x-55,boss.y-49,110,8)}
+ if(boss){ctx.save();ctx.translate(boss.x,boss.y);
+ const colors=[['#643bd2','#a08cff'],['#b33769','#ff8fb7'],['#247b8e','#71f3ff']][boss.type];
+ ctx.shadowColor=colors[1];ctx.shadowBlur=12;
+ ctx.fillStyle=colors[0];ctx.beginPath();
+ if(boss.type===0){ctx.moveTo(-70,5);ctx.lineTo(-24,-28);ctx.lineTo(0,-38);ctx.lineTo(24,-28);ctx.lineTo(70,5);ctx.lineTo(50,30);ctx.lineTo(-50,30)}
+ else if(boss.type===1){ctx.moveTo(-72,-24);ctx.lineTo(-35,-12);ctx.lineTo(-15,-39);ctx.lineTo(15,-39);ctx.lineTo(35,-12);ctx.lineTo(72,-24);ctx.lineTo(60,32);ctx.lineTo(-60,32)}
+ else{ctx.moveTo(-72,-10);ctx.lineTo(-46,-38);ctx.lineTo(-18,-18);ctx.lineTo(0,-47);ctx.lineTo(18,-18);ctx.lineTo(46,-38);ctx.lineTo(72,-10);ctx.lineTo(54,38);ctx.lineTo(-54,38)}
+ ctx.closePath();ctx.fill();ctx.strokeStyle=colors[1];ctx.lineWidth=3;ctx.stroke();ctx.shadowBlur=0;
+ ctx.fillStyle='#15253c';ctx.fillRect(-24,-16,48,34);ctx.fillStyle=boss.phase?'#ff4b38':'#fff2a0';ctx.beginPath();ctx.arc(0,0,15+Math.sin(boss.t*7)*2,0,Math.PI*2);ctx.fill();
+ const turrets=boss.type===0?[-45,45]:boss.type===1?[-57,0,57]:[-65,-30,30,65];
+ for(const x of turrets){ctx.fillStyle='#dceaff';ctx.fillRect(x-8,12,16,19);ctx.fillStyle='#ffb04b';ctx.fillRect(x-4,28,8,12)}
+ ctx.fillStyle='#58dfff';ctx.fillRect(-38,-19,13,7);ctx.fillRect(25,-19,13,7);
+ ctx.restore();ctx.fillStyle='#ff5252';ctx.fillRect(boss.x-55,boss.y-65,110*(boss.hp/boss.max),8);ctx.strokeStyle='#fff';ctx.strokeRect(boss.x-55,boss.y-65,110,8)}
  ctx.fillStyle='#70faff';for(const s of shots)ctx.fillRect(s.x-3,s.y-10,6,18);
  ctx.fillStyle='#ffb557';for(const s of enemyShots)ctx.fillRect(s.x-4,s.y-4,8,12);
  if(playing&&(invuln<=0||Math.floor(invuln*10)%2===0))ship(player.x,player.y,'#4ce3c1');
